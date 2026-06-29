@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# rtk-zcode-bridge SessionStart hook for ZCode.
+#
+# Injects the RTK awareness layer (RTK.md) into the session as additional
+# context, so the user's AGENTS.md stays free of rtk content. This mirrors
+# how superpowers injects its SKILL.md at session start.
+#
+# RTK.md is resolved in priority order:
+#   1. $RTK_MD env var (explicit override)
+#   2. <plugin-root>/RTK.md  (bundled with this plugin)
+#   3. ~/.zcode/RTK.md        (user-level fallback)
+#
+# Output contract (ZCode/Claude compatible):
+#   {"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"<RTK.md>"}}
+#
+# On any error (file missing, read failure) we stay silent so the session
+# starts normally without the rtk awareness block.
+
+set -u
+
+LOG_FILE="${RTK_BRIDGE_LOG:-$HOME/.zcode/cli/logs/rtk-bridge.log}"
+
+log() {
+  { mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null
+    printf '[%s] [session-start] %s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$*" >>"$LOG_FILE" 2>/dev/null; } || true
+}
+
+# Resolve RTK.md path: explicit env override -> bundled -> user-level fallback.
+# This script lives at <plugin-root>/hooks/session-start, so the plugin root is
+# two levels up.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+rtk_md=""
+for candidate in \
+  "${RTK_MD:-}" \
+  "$PLUGIN_ROOT/RTK.md" \
+  "$HOME/.zcode/RTK.md"; do
+  if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+    rtk_md="$candidate"
+    break
+  fi
+done
+
+if [ -z "$rtk_md" ]; then
+  log "RTK.md not found (checked RTK_MD env, $PLUGIN_ROOT/RTK.md, ~/.zcode/RTK.md); skipping injection"
+  exit 0
+fi
+
+# Read the file content.
+content="$(cat "$rtk_md" 2>/dev/null)"
+if [ -z "$content" ]; then
+  log "RTK.md empty or unreadable ($rtk_md); skipping injection"
+  exit 0
+fi
+
+log "injecting RTK.md ($rtk_md, $((${#content})) bytes) via SessionStart hook"
+
+# Build the JSON payload safely with jq (escapes newlines, quotes, backticks).
+# Falls back to python3 if jq is unavailable.
+if command -v jq >/dev/null 2>&1; then
+  jq -nc --arg ctx "$content" \
+    '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:$ctx}}'
+elif command -v python3 >/dev/null 2>&1; then
+  python3 -c '
+import json,sys
+print(json.dumps({"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":sys.stdin.read()}}))
+' <<<"$content"
+else
+  log "neither jq nor python3 available; cannot build JSON; skipping injection"
+  exit 0
+fi
+exit 0

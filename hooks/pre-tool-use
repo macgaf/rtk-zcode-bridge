@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# rtk-bridge PreToolUse hook for ZCode.
+#
+# ZCode fires PreToolUse hooks with a JSON payload on stdin (Claude Code
+# compatible). This shim reads that payload, extracts the Bash command, and
+# forwards a Claude-shaped payload to `rtk hook claude`. rtk decides whether
+# the command has a token-optimized equivalent:
+#   - yes -> it returns {"hookSpecificOutput":{...updatedInput...,"permissionDecision":"allow"}}
+#            and we pass it through unchanged. ZCode applies updatedInput.
+#   - no  -> it prints nothing and exits 0; we stay silent so the original
+#            command runs untouched.
+#
+# Safety: on ANY error (rtk missing, timeout, malformed stdin, bad JSON) we
+# print nothing and exit 0 so the agent's original command always runs.
+#
+# A debug log is written to RTK_BRIDGE_LOG (if set) or ~/.zcode/cli/logs/rtk-bridge.log
+# to aid first-time verification. Set RTK_BRIDGE_LOG=/dev/null to silence.
+
+set -u
+
+LOG_FILE="${RTK_BRIDGE_LOG:-$HOME/.zcode/cli/logs/rtk-bridge.log}"
+RTK_BIN="${RTK_BIN:-rtk}"
+
+log() {
+  # Best-effort logging; never let logging failures affect the hook.
+  {
+    mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null
+    printf '[%s] %s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$*" >>"$LOG_FILE" 2>/dev/null
+  } || true
+}
+
+# Read the entire stdin payload.
+payload="$(cat)"
+log "stdin payload: ${payload:-<empty>}"
+
+# If rtk is not on PATH, bail silently.
+if ! command -v "$RTK_BIN" >/dev/null 2>&1; then
+  log "rtk not found on PATH; skipping"
+  exit 0
+fi
+
+# Extract the Bash command from the payload using jq (preferred) or python3.
+# ZCode's PreToolUse payload is Claude-compatible (tool_name / tool_input),
+# but we tolerate alternate field names defensively.
+extract_command() {
+  local p="$1"
+  if command -v jq >/dev/null 2>&1; then
+    # Try Claude field names first, then common alternates.
+    jq -r '
+      (.tool_input.command // .toolInput.command // .input.command // .tool_input // empty)
+      | select(. != null and (. | type) == "string")
+    ' 2>/dev/null <<<"$p" && return
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c '
+import json,sys
+try:
+    d=json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+for path in (("tool_input","command"),("toolInput","command"),("input","command")):
+    v=d
+    for k in path:
+        if not isinstance(v,dict) or k not in v: v=None;break
+        v=v[k]
+    if isinstance(v,str):
+        print(v);break
+' <<<"$p" 2>/dev/null && return
+  fi
+  return 1
+}
+
+cmd="$(extract_command "$payload" 2>/dev/null)"
+if [ -z "${cmd:-}" ]; then
+  log "no command extracted; skipping"
+  exit 0
+fi
+log "extracted command: $cmd"
+
+# Only attempt to rewrite Bash-like commands. rtk itself ignores anything it
+# does not support (returning empty stdout), so this guard is just an
+# optimization to avoid spawning rtk for obvious non-commands.
+case "$cmd" in
+  rtk\ *|rtk)
+    # Already prefixed; let it run as-is.
+    log "command already prefixed with rtk; skipping"
+    exit 0
+    ;;
+esac
+
+# Build a Claude-shaped payload and forward to rtk hook claude.
+claude_payload="$(printf '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":%s}}' \
+  "$(printf '%s' "$cmd" | jq -Rs . 2>/dev/null)")"
+if [ -z "${claude_payload:-}" ]; then
+  log "failed to build claude payload; skipping"
+  exit 0
+fi
+
+# Pick a timeout wrapper if available (GNU coreutils `timeout` / macOS `gtimeout`).
+# If neither is present we call rtk directly: it returns in milliseconds, and
+# ZCode's hook runner imposes its own 60s timeout as a backstop.
+if command -v gtimeout >/dev/null 2>&1; then
+  TIMEOUT=(gtimeout 10)
+elif command -v timeout >/dev/null 2>&1; then
+  TIMEOUT=(timeout 10)
+else
+  TIMEOUT=()
+fi
+
+# Call rtk; capture stdout. rtk prints a JSON object when it rewrites, or
+# nothing (exit 0) when it does not.
+if [ "${#TIMEOUT[@]}" -gt 0 ]; then
+  out="$(printf '%s' "$claude_payload" | "${TIMEOUT[@]}" "$RTK_BIN" hook claude 2>/dev/null)"
+else
+  out="$(printf '%s' "$claude_payload" | "$RTK_BIN" hook claude 2>/dev/null)"
+fi
+rc=$?
+log "rtk exit=$rc out=${out:-<empty>}"
+
+# Non-zero exit from rtk (other than timeout's 124) with no output = no rewrite.
+# timeout (124) or any error: stay silent and let the original command run.
+if [ -z "${out:-}" ]; then
+  exit 0
+fi
+
+# Emit rtk's JSON for ZCode to parse. If it is not valid JSON, stay silent.
+if command -v jq >/dev/null 2>&1; then
+  if printf '%s' "$out" | jq -e . >/dev/null 2>&1; then
+    printf '%s' "$out"
+  else
+    log "rtk output not valid JSON; skipping: $out"
+  fi
+else
+  # Without jq, assume rtk produced valid JSON (it always does on rewrite).
+  printf '%s' "$out"
+fi
+exit 0
