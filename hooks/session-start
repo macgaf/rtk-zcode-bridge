@@ -2,8 +2,8 @@
 # rtk-zcode-bridge SessionStart hook for ZCode.
 #
 # Injects the RTK awareness layer (RTK.md) into the session as additional
-# context, so the user's AGENTS.md stays free of rtk content. This mirrors
-# how superpowers injects its SKILL.md at session start.
+# context, so the user's AGENTS.md stays free of rtk content. The awareness
+# file is read at session start and emitted as additionalContext.
 #
 # RTK.md is resolved in priority order:
 #   1. $RTK_MD env var (explicit override)

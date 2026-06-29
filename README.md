@@ -46,27 +46,41 @@ of rtk content.
 
 ## Install
 
-### 1. Clone the plugin
+The easiest way is to let ZCode's agent install it for you. Open a ZCode
+session and paste:
 
-```bash
-git clone https://github.com/macgaf/rtk-zcode-bridge.git ~/git_local/rtk-zcode-bridge
+```
+Install the rtk-zcode-bridge plugin from https://github.com/macgaf/rtk-zcode-bridge :
+clone it to a directory of your choice, make the hook scripts under hooks/
+executable, and register that directory in the plugins.dirs array of
+~/.zcode/cli/config.json. Then tell me to restart ZCode for it to take effect.
 ```
 
-(Any path works; just remember it for step 2.)
+The agent will handle the clone, permissions, and config edit, then prompt you
+to restart. That's the whole install.
 
-### 2. Register it with ZCode
+<details>
+<summary>Prefer to do it manually?</summary>
 
-Add the plugin's directory to the `plugins.dirs` array in
+```bash
+# 1. Clone anywhere you like
+git clone https://github.com/macgaf/rtk-zcode-bridge.git <path>/rtk-zcode-bridge
+
+# 2. Make the hook scripts executable
+chmod +x <path>/rtk-zcode-bridge/hooks/run-hook.cmd \
+         <path>/rtk-zcode-bridge/hooks/pre-tool-use \
+         <path>/rtk-zcode-bridge/hooks/session-start
+```
+
+Then add the cloned directory to the `plugins.dirs` array in
 `~/.zcode/cli/config.json`:
 
 ```jsonc
 {
   "plugins": {
-    "enabledPlugins": {
-      "superpowers@zcode-plugins-official": true
-    },
+    "enabledPlugins": {},
     "dirs": [
-      "/Users/you/git_local/rtk-zcode-bridge"
+      "<path>/rtk-zcode-bridge"
     ]
   }
 }
@@ -75,18 +89,9 @@ Add the plugin's directory to the `plugins.dirs` array in
 Inline plugins (those listed in `dirs`) are **enabled by default** — no entry in
 `enabledPlugins` is needed.
 
-### 3. Make the hook scripts executable
+</details>
 
-```bash
-chmod +x ~/git_local/rtk-zcode-bridge/hooks/run-hook.cmd \
-         ~/git_local/rtk-zcode-bridge/hooks/pre-tool-use \
-         ~/git_local/rtk-zcode-bridge/hooks/session-start
-```
-
-### 4. Restart ZCode
-
-Hooks are loaded at session start, so restart ZCode (or open a new session) for
-the plugin to take effect.
+After installing (either way), **restart ZCode** so the hooks load.
 
 ## Verify
 
@@ -136,12 +141,16 @@ point `RTK_MD` at your own file.
 
 ## Uninstall
 
-1. Remove the plugin's path from `plugins.dirs` in `~/.zcode/cli/config.json`.
-2. Delete the cloned directory: `rm -rf ~/git_local/rtk-zcode-bridge`.
-3. Restart ZCode.
+Tell the ZCode agent:
 
-That's it — the plugin touches nothing else. Your `~/.zcode/AGENTS.md` is never
-modified, and no rtk content is left in your ZCode config.
+```
+Uninstall the rtk-zcode-bridge plugin: remove its path from plugins.dirs in
+~/.zcode/cli/config.json and delete the cloned directory.
+```
+
+Or manually: remove the plugin's path from `plugins.dirs` in
+`~/.zcode/cli/config.json`, delete the cloned directory, and restart ZCode.
+The plugin touches nothing else — your `~/.zcode/AGENTS.md` is never modified.
 
 ## Troubleshooting
 
@@ -153,8 +162,8 @@ modified, and no rtk content is left in your ZCode config.
 - Verify the hook scripts are executable (`chmod +x`).
 
 **Log shows `rtk exit=127`.**
-The rtk binary wasn't found. Set `RTK_BIN` to its absolute path, or ensure
-`/opt/homebrew/bin` (or wherever rtk lives) is on the PATH ZCode inherits.
+The rtk binary wasn't found. Set `RTK_BIN` to its absolute path, or ensure the
+directory rtk lives in is on the PATH ZCode inherits.
 
 **`Hook stdout was not valid JSON` in ZCode.**
 This is a recoverable error — the session continues, just without that hook's

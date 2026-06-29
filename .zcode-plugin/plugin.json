@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "RTK token-optimization bridge for ZCode: transparently rewrites Bash commands through rtk (rtk hook claude).",
   "author": {
-    "name": "macgaffin"
+    "name": "macgaf"
   },
   "license": "MIT",
   "homepage": "https://github.com/macgaf/rtk-zcode-bridge",
