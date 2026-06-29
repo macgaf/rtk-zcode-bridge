@@ -1,6 +1,6 @@
 # rtk-zcode-bridge
 
-> Bring [rtk](https://github.com/monosans/rtk) (Rust Token Killer) token-optimization to [ZCode](https://zcode.z.ai/cn) — transparently, with zero prompt overhead.
+> Bring [rtk](https://github.com/rtk-ai/rtk) (Rust Token Killer) token-optimization to [ZCode](https://zcode.z.ai/cn) — transparently, with zero prompt overhead.
 
 ZCode's hook system is Claude-Code-compatible. This plugin ports rtk's **Claude
 Code integration pattern** to ZCode: every Bash command you (or the agent) run
@@ -38,7 +38,7 @@ of rtk content.
 - **ZCode** ≥ 3.1.8 (hook support for the native agent landed here; on earlier
   versions `PreToolUse` hooks may not fire — see [issue #32](https://github.com/zai-org/feedback/issues/32)).
 - **rtk** installed and on `PATH` — `which rtk` should resolve. Install via
-  [rtk's instructions](https://github.com/monosans/rtk).
+  [rtk's instructions](https://github.com/rtk-ai/rtk).
 - **jq** (preferred) or **python3** — used by the hooks for JSON handling. macOS
   ships both by default.
 - **bash** — the hook scripts are bash. On Windows, the bundled `run-hook.cmd`
