@@ -1,6 +1,6 @@
 {
   "name": "rtk-zcode-bridge",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "RTK token-optimization bridge for ZCode: transparently rewrites Bash commands through rtk (rtk hook claude).",
   "author": {
     "name": "macgaf"
