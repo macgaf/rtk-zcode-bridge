@@ -1,6 +1,6 @@
 # rtk-zcode-bridge
 
-> Bring [rtk](https://github.com/monosans/rtk) (Rust Token Killer) token-optimization to [ZCode](https://z.ai) — transparently, with zero prompt overhead.
+> Bring [rtk](https://github.com/monosans/rtk) (Rust Token Killer) token-optimization to [ZCode](https://zcode.z.ai/cn) — transparently, with zero prompt overhead.
 
 ZCode's hook system is Claude-Code-compatible. This plugin ports rtk's **Claude
 Code integration pattern** to ZCode: every Bash command you (or the agent) run
