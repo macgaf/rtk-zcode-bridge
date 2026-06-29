@@ -50,14 +50,11 @@ The easiest way is to let ZCode's agent install it for you. Open a ZCode
 session and paste:
 
 ```
-Install the rtk-zcode-bridge plugin from https://github.com/macgaf/rtk-zcode-bridge :
-clone it to a directory of your choice, make the hook scripts under hooks/
-executable, and register that directory in the plugins.dirs array of
-~/.zcode/cli/config.json. Then tell me to restart ZCode for it to take effect.
+Install the rtk-zcode-bridge plugin for zcode from https://github.com/macgaf/rtk-zcode-bridge
 ```
 
-The agent will handle the clone, permissions, and config edit, then prompt you
-to restart. That's the whole install.
+The agent reads the repo, clones it, sets permissions, registers it in
+`~/.zcode/cli/config.json`, and tells you to restart. That's the whole install.
 
 <details>
 <summary>Prefer to do it manually?</summary>
@@ -144,13 +141,12 @@ point `RTK_MD` at your own file.
 Tell the ZCode agent:
 
 ```
-Uninstall the rtk-zcode-bridge plugin: remove its path from plugins.dirs in
-~/.zcode/cli/config.json and delete the cloned directory.
+Uninstall the rtk-zcode-bridge plugin for zcode
 ```
 
-Or manually: remove the plugin's path from `plugins.dirs` in
-`~/.zcode/cli/config.json`, delete the cloned directory, and restart ZCode.
-The plugin touches nothing else — your `~/.zcode/AGENTS.md` is never modified.
+The agent removes its path from `plugins.dirs` in `~/.zcode/cli/config.json` and
+deletes the cloned directory. The plugin touches nothing else — your
+`~/.zcode/AGENTS.md` is never modified.
 
 ## Troubleshooting
 
